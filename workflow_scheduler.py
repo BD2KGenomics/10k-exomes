@@ -2,14 +2,17 @@ import time
 import sys
 import boto
 import boto.sqs
+import boto.s3.key
 import subprocess
 from boto.exception import EC2ResponseError
 from boto.sqs.message import Message
 import threading
 import subprocess
 
-normalFileName = None
-tumourFileName = None
+# globals for formatting
+bucket = None
+normalKey = None
+tumorKey = None
 
 
 class ToolSerialization:
@@ -20,7 +23,9 @@ class ToolSerialization:
 
 
 class WorkFlow:
-    workArray = []
+    normalDownload = ToolSerialization("aws s3 --bucket {bucket} --key {normalKey}", None, None, None)
+    tumorDownload = ToolSerialization("aws s3 --bucket {bucket} --key {tumorKey}", None, None, None)
+    workArray = [normalDownload, tumorDownload]
 
 
 class Connection:
@@ -33,19 +38,20 @@ class Connection:
 
     start_queue = sqs.get_queue('bd2k-queue-start')
     int_queue = sqs.get_queue('bd2k-queue-intermediate')
-    #We will try to read from start_queue and its corresponding bucket. If it is empty, we will
-    #read from int_queue and set currentBucket to middleBucket
+    # We will try to read from start_queue and its corresponding bucket. If it is empty, we will
+    # read from int_queue and set currentBucket to middleBucket
     currentBucket = startBucket
     currentQueue = start_queue
     message = start_queue.read()
-
-    def __init__(self):
-        self.startStep = 0
+    startStep = 0
 
     if message is None:
         currentQueue = int_queue
         message = currentQueue.read()
         currentBucket = middleBucket
+
+    def __init__(self):
+        pass
 
     def getBucket(self):
         return self.currentBucket
@@ -54,32 +60,32 @@ class Connection:
         return self.startStep
 
     def setGlobals(self):
-        normalFileName = "100-{}".format(self.message.get_body())
-        tumourFileName = normalFileName.replace("normal", "tumour")
+        bucket = self.currentBucket
 
-    def download(self):
+    def getKey(self):
         normalKey = self.currentBucket.get_key(self.message.get_body())
         tumourKey = self.currentBucket.get_key(self.message.get_body().replace("normal", "tumour"))
-        normalKey.get_contents_to_filename(normalFileName)
-        normalKey.get_contents_to_filename(tumourFileName)
+
 
     def upload(self, nameList):
         for name in nameList:
-            k=Key(self.currentBucket)
+            k = boto.s3.key.Key(self.currentBucket)
             k.key = name
             k.set_contents_from_filename(name)
+
 
 def main():
     connection = Connection()
     workflow = WorkFlow()
+    connection.getKey()
     connection.setGlobals()
-    connection.download()
-
+    # we want to start at the correct step in the array
     for step in workflow.workArray[connection.startStep:]:
         tool = step.tool
         tool = tool.format(globals())
-        subprocess.check_call( tool, shell=True )
+        subprocess.check_call(tool, shell=True)
         connection.upload(tool.output)
+
 
 if __name__ == '__main__':
     main()
