@@ -29,8 +29,6 @@ class Step:
 
 class WorkFlow:
 
-    #tumor_bam="{tumor}.tumor.bam".format( globals() )
-
     #normalDownload = Step( command="aws s3 --bucket {bucket} --key {normalKey.name}",
     #                       input=[],
     #                       output=[])
@@ -42,19 +40,32 @@ class WorkFlow:
 
     workList = [toyOne, toyTwo, toyThree]
     
-    def resumption_step(self, fileSet):
+    def current_step(self, fileSet):
+        """
+        Returns the index of the workflow step that needs to be run next
+        """
         for index, step in enumerate(self.workList):
             if step.inputs.issubset(fileSet) and not step.outputs.issubset(fileSet):
                 return index
-        return 7
 
-    def getUnusedFiles(self, index, fileSet):
+
+    def deletable(self, fileSet):
+        index = self.current_step(fileSet)
         cannot_be_deleted = set()
         for file in fileSet:
             for step in self.workList[index:]:
                 if file in step.inputs:
                     cannot_be_deleted.add(file)
         return fileSet-cannot_be_deleted
+
+    def existing_output(self):
+        files = [f for f in os.listdir(workdir) if os.path.isfile(f)]
+        output_set = set()
+        for f in files:
+            for step in self.workList:
+                if f in step.outputs:
+                    output_set.add(f)
+        return output_set
 
 
 # has connection to SQS queues and s3 buckets, deals with those interactions
@@ -102,24 +113,19 @@ class Connection:
             k.set_contents_from_filename(name)
 
 
-def getExistingFiles():
-    files = set(f for f in os.listdir(workdir) if os.path.isfile(f))
-    #files.add('bucket.txt')
-    return files
+
 
 def main():
     workflow = WorkFlow()
-    print(getExistingFiles())
-    print(workflow.workList[0].inputs)
-    print(set(['bucket.txt']).issubset(getExistingFiles()))
-    print(workflow.workList[0].inputs.issubset(getExistingFiles()))
     # we want to start at the correct step in the list
-    for step in workflow.workList[:]:
+    for step in workflow.workList:
+        index = workflow.current_step(workflow.existing_output())
+        print(index
         command = step.command.format(**globals())
         subprocess.check_call(command, shell=True)
-        index = workflow.resumption_step(getExistingFiles())
+        index = workflow.current_step(workflow.existing_output())
         print(index)
-        print(workflow.getUnusedFiles(index=index, fileSet=getExistingFiles()))
+        print(workflow.deletable(fileSet=workflow.existing_output()))
 
 
 if __name__ == '__main__':
