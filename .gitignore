@@ -1,0 +1,10 @@
+
+.idea/vcs.xml
+
+*.xml
+
+credentials.csv.txt
+
+.idea/WorkflowScheduler.iml
+
+.idea/.name
