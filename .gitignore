@@ -1,10 +1,6 @@
 
-.idea/vcs.xml
-
-*.xml
+/.idea
+*.pyc
 
 credentials.csv.txt
 
-.idea/WorkflowScheduler.iml
-
-.idea/.name

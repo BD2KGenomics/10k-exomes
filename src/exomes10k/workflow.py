@@ -17,6 +17,7 @@ class WorkFlow:
         """
         self.steps = steps
         self.work_dir = work_dir
+        # set(s3) ensures that a new set is created, a defensive copy
         self.s3_files = set() if s3_files is None else set(s3_files)
 
     # normalDownload = Step( command="aws s3 --bucket {bucket} --key {normalKey.name}",
@@ -32,13 +33,18 @@ class WorkFlow:
         """
         # FIXME: This loops around (it return 0 when called after the last step was successful
         for index, step in enumerate(self.steps):
-            # TODO: explain what the condition does
+            # If the step has all the necessary inputs, and has not produced the necessary outputs, we return it
             if step.inputs.issubset(self.existing_output) and not step.outputs.issubset(self.existing_output):
                 return index
         return 0
 
+    def get_dir(self):
+        return self.work_dir
 
-    def deletable(self):
+    def deletable_files(self):
+        """
+        Returns the output files that can be deleted (aren't used again in the workflow)
+        """
         index = self.current_step()
         cannot_be_deleted = set()
         for file in self.existing_output:
@@ -47,8 +53,12 @@ class WorkFlow:
                     cannot_be_deleted.add(file)
         return self.existing_output - cannot_be_deleted
 
+    # property tag treats function like variable
     @property
     def existing_output(self):
+        """
+        Returns the existing output files from the current directory
+        """
         files = [f for f in os.listdir(self.work_dir) if os.path.isfile(f)]
         output_set = set()
         for f in files:
@@ -56,3 +66,7 @@ class WorkFlow:
                 if f in step.outputs:
                     output_set.add(f)
         return output_set
+
+    @property
+    def all_files(self):
+        return [f for f in os.listdir(self.work_dir) if os.path.isfile(f)]
