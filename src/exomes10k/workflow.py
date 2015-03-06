@@ -59,14 +59,10 @@ class WorkFlow:
         """
         Returns the existing output files from the current directory
         """
-        files = [f for f in os.listdir(self.work_dir) if os.path.isfile(f)]
+        files = [f for f in os.listdir(self.work_dir) if os.path.isfile(os.path.join(self.work_dir, f))]
         output_set = set()
         for f in files:
             for step in self.steps:
                 if f in step.outputs:
                     output_set.add(f)
         return output_set
-
-    @property
-    def all_files(self):
-        return [f for f in os.listdir(self.work_dir) if os.path.isfile(f)]

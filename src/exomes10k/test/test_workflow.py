@@ -50,12 +50,11 @@ class TestWorkFlow(unittest.TestCase):
 
         index = 0
         step_index = workflow.current_step()
-        deletable_files = workflow.deletable_files()
         self.assertEqual(step_index, index)
+        deletable_files = workflow.deletable_files()
         self.assertEqual(len(deletable_files), 0)
         command = workflow.steps[index].command
         subprocess.check_call(command, shell=True)
-        all_files = workflow.all_files
 
         index = 1
         step_index = workflow.current_step()
@@ -64,7 +63,6 @@ class TestWorkFlow(unittest.TestCase):
         self.assertEqual(len(deletable_files), 0)
         command = workflow.steps[index].command
         subprocess.check_call(command, shell=True)
-        all_files = workflow.all_files
 
         index = 2
         step_index = workflow.current_step()
@@ -73,7 +71,6 @@ class TestWorkFlow(unittest.TestCase):
         self.assertEqual(len(deletable_files), 1)
         command = workflow.steps[index].command
         subprocess.check_call(command, shell=True)
-        all_files = workflow.all_files
 
         index = 3
         step_index = workflow.current_step()
@@ -82,7 +79,6 @@ class TestWorkFlow(unittest.TestCase):
         self.assertEqual(step_index, index)
         command = workflow.steps[index].command
         subprocess.check_call(command, shell=True)
-        all_files = workflow.all_files
 
     def tearDown(self):
         shutil.rmtree(self.workdir)
