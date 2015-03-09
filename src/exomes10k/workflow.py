@@ -25,8 +25,6 @@ class WorkFlow:
     # output=[])
     # tumorDownload = Step(command="aws s3 --bucket {bucket} --key {tumorKey.name}", None, None, None)
 
-
-
     def current_step(self):
         """
         Returns the index of the workflow step that needs to be run next
@@ -34,8 +32,13 @@ class WorkFlow:
         # FIXME: This loops around (it return 0 when called after the last step was successful
         for index, step in enumerate(self.steps):
             # If the step has all the necessary inputs, and has not produced the necessary outputs, we return it
-            if step.inputs.issubset(self.existing_output) and not step.outputs.issubset(self.existing_output):
+            existing_files = self.existing_output
+            if step.inputs.issubset(existing_files) and not step.outputs.issubset(existing_files):
                 return index
+            else:
+                if step.outputs.issubset(existing_files) and index+1 == len(self.steps):
+                    print("Workflow Complete")
+                    return -1
         return 0
 
     def get_dir(self):

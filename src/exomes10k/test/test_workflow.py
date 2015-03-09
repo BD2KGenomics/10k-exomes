@@ -35,8 +35,8 @@ class ToyWorkflow(WorkFlow):
             command="touch {0}/{toyThreeOutput}".format(data_dir, **globals()),
             inputs={"toyTwoOutput.txt"},
             outputs={"toyThreeOutput.txt"})
-        steps = [setUp, toyOne, toyTwo, toyThree]
-        self.steps = steps
+        self.steps = [setUp, toyOne, toyTwo, toyThree]
+
         WorkFlow.__init__(self, self.steps, data_dir)
 
 
@@ -44,6 +44,9 @@ class TestWorkFlow(unittest.TestCase):
 
     def setUp(self):
         self.workdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.workdir)
 
     def test_simple(self):
         workflow = ToyWorkflow(self.workdir)
@@ -79,6 +82,3 @@ class TestWorkFlow(unittest.TestCase):
         self.assertEqual(step_index, index)
         command = workflow.steps[index].command
         subprocess.check_call(command, shell=True)
-
-    def tearDown(self):
-        shutil.rmtree(self.workdir)
