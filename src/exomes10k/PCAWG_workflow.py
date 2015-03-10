@@ -5,8 +5,8 @@ import subprocess
 import tempfile
 import shutil
 
-from exomes10k.workflow import WorkFlow
-from exomes10k.workflow import Step
+from workflow import WorkFlow
+from workflow import Step
 
 
 class PCAWG(WorkFlow):
@@ -143,7 +143,7 @@ def calculate_contamination(self):
     """
     Open up contamination file and return contamination value
     """
-    
+
     contam = 0.01
     with open('{data}/contest.firehose'.format(**globals()), 'r') as file:
         val = file.readline()
