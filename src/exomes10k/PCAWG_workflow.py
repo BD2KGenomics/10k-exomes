@@ -28,7 +28,7 @@ class PCAWG(WorkFlow):
                                 -known {data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf \
                                 --downsampling_type NONE \
                                 -o {data}/{uuid}.normal.intervals".format(**globals()),
-                        inputs={normal, normalBai},
+                        inputs={normal, normalBai} | input_set,
                         outputs={"{data}/{uuid}.normal.intervals".format(**globals())})
 
         s2_RTC_t = Step(command="java -Xmx{memory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
@@ -40,7 +40,7 @@ class PCAWG(WorkFlow):
                                 -known {data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf \
                                 --downsampling_type NONE \
                                 -o {data}/{uuid}.tumour.intervals".format(**globals()),
-                        inputs={tumor, tumorBai},
+                        inputs={tumor, tumorBai} | input_set,
                         outputs={"{data}/{uuid}.tumour.intervals".format(**globals())})
 
         s3_IR_n = Step(command="java -Xmx{Hmemory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
@@ -53,7 +53,7 @@ class PCAWG(WorkFlow):
                                 -known {data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf \
                                 -maxReads 720000 -maxInMemory 5400000 \
                                 -o {data}/{uuid}.normal.indel.bam".format(**globals()),
-                       inputs={"{data}/{uuid}.normal.intervals".format(**globals())},
+                       inputs={"{data}/{uuid}.normal.intervals".format(**globals())} | input_set,
                        outputs={"{data}/{uuid}.normal.indel.bam".format(**globals())})
 
         s3_IR_t = Step(command="java -Xmx{Hmemory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
@@ -66,7 +66,7 @@ class PCAWG(WorkFlow):
                                 -known {data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf \
                                 -maxReads 720000 -maxInMemory 5400000 \
                                 -o {data}/{uuid}.tumour.indel.bam".format(**globals()),
-                       inputs={"{data}/{uuid}.tumour.intervals".format(**globals())},
+                       inputs={"{data}/{uuid}.tumour.intervals".format(**globals())} | input_set,
                        outputs={"{data}/{uuid}.tumour.indel.bam".format(**globals())})
 
         s4_BR_n = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
@@ -76,7 +76,7 @@ class PCAWG(WorkFlow):
                                 -I {data}/{uuid}.normal.indel.bam \
                                 -knownSites {data}/dbsnp_132_b37.leftAligned.vcf \
                                 -o {data}/{uuid}.normal.recal_data.table".format(**globals()),
-                       inputs={"{data}/{uuid}.normal.indel.bam".format(**globals())},
+                       inputs={"{data}/{uuid}.normal.indel.bam".format(**globals())} | input_set,
                        outputs={"{data}/{uuid}.normal.recal_data.table".format(**globals())})
 
         s4_BR_t = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
@@ -97,7 +97,7 @@ class PCAWG(WorkFlow):
                                 -I {data}/{uuid}.normal.indel.bam \
                                 -BQSR {data}/{uuid}.normal.recal_data.table \
                                 -o {data}/{uuid}.normal.bqsr.bam".format(**globals()),
-                       inputs={"{data}/{uuid}.normal.recal_data.table".format(**globals())},
+                       inputs={"{data}/{uuid}.normal.recal_data.table".format(**globals())} | input_set,
                        outputs={"{data}/{uuid}.normal.bqsr.bam".format(**globals())})
 
         s5_PR_t = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
@@ -108,7 +108,7 @@ class PCAWG(WorkFlow):
                                 -I {data}/{uuid}.tumour.indel.bam \
                                 -BQSR {data}/{uuid}.tumour.recal_data.table \
                                 -o {data}/{uuid}.tumour.bqsr.bam".format(**globals()),
-                       inputs={"{data}/{uuid}.tumour.recal_data.table".format(**globals())},
+                       inputs={"{data}/{uuid}.tumour.recal_data.table".format(**globals())} | input_set,
                        outputs={"{data}/{uuid}.tumour.bqsr.bam".format(**globals())})
 
         s6_CAF = Step(command="java -Djava.io.tmpdir=~/tmp -Xmx2g \
@@ -116,13 +116,14 @@ class PCAWG(WorkFlow):
                                 -S {tool_dir}/ContaminationPipeline.scala \
                                 --reference {data}/genome.fa \
                                 --output {data}/contest \
-                                --bamfile {data}/tumour.bqsr.bam \
-                                -nbam {data}/normal.bqsr.bam \
+                                --bamfile {data}/{uuid}.tumour.bqsr.bam \
+                                -nbam {data}/{uuid}.normal.bqsr.bam \
                                 --popfile {data}/hg19_population_stratified_af_hapmap_3.3.fixed.vcf \
                                 --arrayinterval {data}/SNP6.hg19.interval_list \
                                 --interval {data}/gaf_20111020+broad_wex_1.1_hg19.bed \
                                 -run -memory 2".format(**globals()),
-                      inputs={},
+                      inputs={"{uuid}.tumour.bqsr.bam".format(**globals()),
+                              "{uuid}.normal.bqsr.bam".format(**globals())} | input_set,
                       outputs={})
 
         # The calculate_contamination function cannot be called until after S6_CAF
@@ -175,15 +176,13 @@ if __name__ == '__main__':
     normalBai = normal + '.bai'
     tumorBai = tumor + '.bai'
 
-
-
     # Specify protected input set
-    input_set = {'1000G_phase1.indels.hg19.sites.fixed.vcf',
-                 'Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf',
-                 'dbsnp_132_b37.leftAligned.vcf',
-                 'SNP6.hg19.interval_list',
-                 'gaf_20111020+broad_wex_1.1_hg19.bed',
-                 'hg19_population_stratified_af_hapmap_3.3.fixed.vcf',
-                 'genome.fa',
-                 'genome.dict',
-                 'genome.fa.fai' }
+    input_set = {'{data}/1000G_phase1.indels.hg19.sites.fixed.vcf'.format(**globals()),
+                 '{data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf'.format(**globals()),
+                 '{data}/dbsnp_132_b37.leftAligned.vcf'.format(**globals()),
+                 '{data}/SNP6.hg19.interval_list'.format(**globals()),
+                 '{data}/gaf_20111020+broad_wex_1.1_hg19.bed'.format(**globals()),
+                 '{data}/hg19_population_stratified_af_hapmap_3.3.fixed.vcf'.format(**globals()),
+                 '{data}/genome.fa'.format(**globals()),
+                 '{data}/genome.dict'.format(**globals()),
+                 '{data}/genome.fa.fai'.format(**globals()) }
