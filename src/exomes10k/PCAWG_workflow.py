@@ -54,7 +54,8 @@ class PCAWG(WorkFlow):
                                 -maxReads 720000 -maxInMemory 5400000 \
                                 -o {data}/{uuid}.normal.indel.bam".format(**globals()),
                        inputs={"{data}/{uuid}.normal.intervals".format(**globals())} | input_set,
-                       outputs={"{data}/{uuid}.normal.indel.bam".format(**globals())})
+                       outputs={"{data}/{uuid}.normal.indel.bam".format(**globals()),
+                                "{data}/{uuid}.normal.indel.bai".format(**globals())})
 
         s3_IR_t = Step(command="java -Xmx{Hmemory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T IndelRealigner \
@@ -67,7 +68,8 @@ class PCAWG(WorkFlow):
                                 -maxReads 720000 -maxInMemory 5400000 \
                                 -o {data}/{uuid}.tumour.indel.bam".format(**globals()),
                        inputs={"{data}/{uuid}.tumour.intervals".format(**globals())} | input_set,
-                       outputs={"{data}/{uuid}.tumour.indel.bam".format(**globals())})
+                       outputs={"{data}/{uuid}.tumour.indel.bam".format(**globals()),
+                                "{data}/{uuid}.tumour.indel.bai".format(**globals())})
 
         s4_BR_n = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T BaseRecalibrator \
@@ -98,7 +100,8 @@ class PCAWG(WorkFlow):
                                 -BQSR {data}/{uuid}.normal.recal_data.table \
                                 -o {data}/{uuid}.normal.bqsr.bam".format(**globals()),
                        inputs={"{data}/{uuid}.normal.recal_data.table".format(**globals())} | input_set,
-                       outputs={"{data}/{uuid}.normal.bqsr.bam".format(**globals())})
+                       outputs={"{data}/{uuid}.normal.bqsr.bam".format(**globals()),
+                                "{data}/{uuid}.normal.bqsr.bai".format(**globals())})
 
         s5_PR_t = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T PrintReads \
@@ -109,7 +112,8 @@ class PCAWG(WorkFlow):
                                 -BQSR {data}/{uuid}.tumour.recal_data.table \
                                 -o {data}/{uuid}.tumour.bqsr.bam".format(**globals()),
                        inputs={"{data}/{uuid}.tumour.recal_data.table".format(**globals())} | input_set,
-                       outputs={"{data}/{uuid}.tumour.bqsr.bam".format(**globals())})
+                       outputs={"{data}/{uuid}.tumour.bqsr.bam".format(**globals()),
+                                "{data}/{uuid}.tumour.bqsr.bai".format(**globals())})
 
         s6_CAF = Step(command="java -Djava.io.tmpdir=~/tmp -Xmx2g \
                                 -jar {tool_dir}/Queue-1.4-437-g6b8a9e1-svn-35362.jar \
