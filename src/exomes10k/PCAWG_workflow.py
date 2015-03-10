@@ -144,7 +144,8 @@ class PCAWG(WorkFlow):
                                 --out {data}/MuTect.out \
                                 --coverage_file {data}/MuTect.coverage \
                                 --vcf {data}/MuTect.pair8.vcf".format(contam, **globals()),
-                     inputs={},
+                     inputs={"{uuid}.tumour.bqsr.bam".format(**globals()),
+                              "{uuid}.normal.bqsr.bam".format(**globals())} | input_set,
                      outputs={})
 
 def calculate_contamination():
@@ -162,12 +163,12 @@ def calculate_contamination():
 
 if __name__ == '__main__':
 
-    data="/home/ubuntu/data"
-    tool_dir = "/home/ubuntu/tools"
+    data = '/home/ubuntu/data'
+    tool_dir = '/home/ubuntu/tools'
 
-    memory=15
-    halfMemory= memory/2
-    cores=4
+    memory = 15
+    halfMemory = memory/2
+    cores = 4
 
     uuid='123456789'
     normal=uuid + '.N.bam'
@@ -183,6 +184,7 @@ if __name__ == '__main__':
                  '{data}/SNP6.hg19.interval_list'.format(**globals()),
                  '{data}/gaf_20111020+broad_wex_1.1_hg19.bed'.format(**globals()),
                  '{data}/hg19_population_stratified_af_hapmap_3.3.fixed.vcf'.format(**globals()),
+                 '{data}/b37_cosmic_v54_120711.vcf',
                  '{data}/genome.fa'.format(**globals()),
                  '{data}/genome.dict'.format(**globals()),
                  '{data}/genome.fa.fai'.format(**globals()) }
