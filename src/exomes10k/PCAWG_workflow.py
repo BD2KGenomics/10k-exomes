@@ -23,18 +23,26 @@ normalBai = normal + '.bai'
 tumorBai = tumor + '.bai'
 
 # Specify protected input set
-input_set = {}
+input_set = {'1000G_phase1.indels.hg19.sites.fixed.vcf',
+             'Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf',
+             'dbsnp_132_b37.leftAligned.vcf',
+             'SNP6.hg19.interval_list',
+             'gaf_20111020+broad_wex_1.1_hg19.bed',
+             'hg19_population_stratified_af_hapmap_3.3.fixed.vcf',
+             'genome.fa',
+             'genome.dict',
+             'genome.fa.fai' }
 
 class PCAWG(WorkFlow):
     def __init__(self):
         """
         naming: step#, description, p= parallel, n = normal, t = tumor steps
         """
-        s1_index_p = Step(command="{tool_dir}samtools index {data}/{normal} & samtools index {data}/{tumor} & wait".format(**globals()),
+        s1_index_p = Step(command="samtools index {data}/{normal} & samtools index {data}/{tumor} & wait".format(**globals()),
                           inputs={normal, tumor},
                           outputs={normalBai, tumorBai})
 
-        s2_RTC_n = Step(command="java -Xmx{MEM}g -jar GenomeAnalysisTK.jar \
+        s2_RTC_n = Step(command="java -Xmx{memory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T RealignerTargetCreator \
                                 -nt {cores} \
                                 -R {data}/genome.fa \
@@ -46,19 +54,19 @@ class PCAWG(WorkFlow):
                         inputs={normal, normalBai},
                         outputs={"{data}/{uuid}.normal.intervals".format(**globals())})
 
-        s2_RTC_t = Step(inputs="java -Xmx{MEM}g -jar GenomeAnalysisTK.jar \
+        s2_RTC_t = Step(inputs="java -Xmx{memory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T RealignerTargetCreator \
                                 -nt {cores} \
-                                -R ${data}/genome.fa \
-                                -I ${data}/${TUMOUR} \
-                                -known ${data}/1000G_phase1.indels.hg19.sites.fixed.vcf \
-                                -known ${data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf \
+                                -R {data}/genome.fa \
+                                -I {data}/{tumor} \
+                                -known {data}/1000G_phase1.indels.hg19.sites.fixed.vcf \
+                                -known {data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf \
                                 --downsampling_type NONE \
                                 -o {data}/{uuid}.tumour.intervals".format(**globals()),
                         inputs={tumor, tumorBai},
                         outputs={"{data}/{uuid}.tumour.intervals".format(**globals())})
 
-        s3_IR_n = Step(command="java -Xmx{HMEM}g -jar GenomeAnalysisTK.jar \
+        s3_IR_n = Step(command="java -Xmx{Hmemory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T IndelRealigner \
                                 -R {data}/genome.fa \
                                 -I {data}/{normal}  \
@@ -71,10 +79,10 @@ class PCAWG(WorkFlow):
                        inputs={"{data}/{uuid}.normal.intervals".format(**globals())},
                        outputs={"{data}/{uuid}.normal.indel.bam".format(**globals())})
 
-        s3_IR_t = Step(command="java -Xmx{HMEM}g -jar GenomeAnalysisTK.jar \
+        s3_IR_t = Step(command="java -Xmx{Hmemory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T IndelRealigner \
                                 -R {data}/genome.fa \
-                                -I {data}/{TUMOUR}  \
+                                -I {data}/{tumor}  \
                                 -targetIntervals {data}/{uuid}.output.tumour.intervals \
                                 --downsampling_type NONE \
                                 -known {data}/1000G_phase1.indels.hg19.sites.fixed.vcf \
@@ -84,7 +92,7 @@ class PCAWG(WorkFlow):
                        inputs={"{data}/{uuid}.tumour.intervals".format(**globals())},
                        outputs={"{data}/{uuid}.tumour.indel.bam".format(**globals())})
 
-        s4_BR_n = Step(command="java -jar GenomeAnalysisTK.jar \
+        s4_BR_n = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T BaseRecalibrator \
                                 -nct {cores} \
                                 -R {data}/genome.fa \
@@ -94,7 +102,7 @@ class PCAWG(WorkFlow):
                        inputs={"{data}/{uuid}.normal.indel.bam".format(**globals())},
                        outputs={"{data}/{uuid}.normal.recal_data.table".format(**globals())})
 
-        s4_BR_t = Step(command="java -jar GenomeAnalysisTK.jar \
+        s4_BR_t = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T BaseRecalibrator \
                                 -nct {cores} \
                                 -R {data}/genome.fa \
@@ -104,7 +112,7 @@ class PCAWG(WorkFlow):
                        inputs={"{data}/{uuid}.tumour.indel.bam".format(**globals())},
                        outputs={"{data}/{uuid}.tumour.recal_data.table".format(**globals())})
 
-        s5_PR_n = Step(command="java -jar GenomeAnalysisTK.jar \
+        s5_PR_n = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T PrintReads \
                                 -nct {cores}  \
                                 -R {data}/genome.fa \
@@ -115,7 +123,7 @@ class PCAWG(WorkFlow):
                        inputs={"{data}/{uuid}.normal.recal_data.table".format(**globals())},
                        outputs={"{data}/{uuid}.normal.bqsr.bam".format(**globals())})
 
-        s5_PR_t = Step(command="java -jar GenomeAnalysisTK.jar \
+        s5_PR_t = Step(command="java -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T PrintReads \
                                 -nct {cores} \
                                 -R {data}/genome.fa \
@@ -126,6 +134,33 @@ class PCAWG(WorkFlow):
                        inputs={"{data}/{uuid}.tumour.recal_data.table".format(**globals())},
                        outputs={"{data}/{uuid}.tumour.bqsr.bam".format(**globals())})
 
-        s6_CAF = Step(command="",
+        s6_CAF = Step(command="java -Djava.io.tmpdir=~/tmp -Xmx2g \
+                                -jar {tool_dir}/Queue-1.4-437-g6b8a9e1-svn-35362.jar \
+                                -S {tool_dir}/ContaminationPipeline.scala \
+                                --reference {data}/genome.fa \
+                                --output {data}/contest \
+                                --bamfile {data}/tumour.bqsr.bam \
+                                -nbam {data}/normal.bqsr.bam \
+                                --popfile {data}/hg19_population_stratified_af_hapmap_3.3.fixed.vcf \
+                                --arrayinterval {data}/SNP6.hg19.interval_list \
+                                --interval {data}/gaf_20111020+broad_wex_1.1_hg19.bed -run -memory 2",
                       inputs={},
                       outputs={})
+
+
+        s7_Mu = Step(command="java -Xmx4g -jar muTect-1.1.5.jar \
+                                --analysis_type MuTect \
+                                --reference_sequence {data}/genome.fa \
+                                --cosmic  {data}/b37_cosmic_v54_120711.vcf \
+                                --dbsnp {data}/dbsnp_132_b37.leftAligned.vcf \
+                                --intervals {data}/SNP6.hg19.interval_list \
+                                --input_file:normal {data}/normal.bqsr.bam \
+                                --input_file:tumor {data}/tumour.bqsr.bam \
+                                --fraction_contamination $CONTAM \
+                                --out {data}/MuTect.out \
+                                --coverage_file {data}/MuTect.coverage \
+                                --vcf {data}/MuTect.pair8.vcf",
+                     inputs={},
+                     outputs={})
+
+  
