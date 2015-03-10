@@ -8,30 +8,6 @@ import shutil
 from exomes10k.workflow import WorkFlow
 from exomes10k.workflow import Step
 
-data="/home/ubuntu/data"
-tool_dir = "/home/ubuntu/tools"
-
-memory=15
-halfMemory= memory/2
-cores=4
-
-uuid='123456789'
-normal=uuid + '.N.bam'
-tumor=uuid + '.T.bam'
-
-normalBai = normal + '.bai'
-tumorBai = tumor + '.bai'
-
-# Specify protected input set
-input_set = {'1000G_phase1.indels.hg19.sites.fixed.vcf',
-             'Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf',
-             'dbsnp_132_b37.leftAligned.vcf',
-             'SNP6.hg19.interval_list',
-             'gaf_20111020+broad_wex_1.1_hg19.bed',
-             'hg19_population_stratified_af_hapmap_3.3.fixed.vcf',
-             'genome.fa',
-             'genome.dict',
-             'genome.fa.fai' }
 
 class PCAWG(WorkFlow):
     def __init__(self):
@@ -156,11 +132,51 @@ class PCAWG(WorkFlow):
                                 --intervals {data}/SNP6.hg19.interval_list \
                                 --input_file:normal {data}/normal.bqsr.bam \
                                 --input_file:tumor {data}/tumour.bqsr.bam \
-                                --fraction_contamination $CONTAM \
+                                --fraction_contamination {contam} \
                                 --out {data}/MuTect.out \
                                 --coverage_file {data}/MuTect.coverage \
                                 --vcf {data}/MuTect.pair8.vcf",
                      inputs={},
                      outputs={})
 
-  
+def calculate_contamination(self):
+    """
+    Open up contamination file and return contamination value
+    """
+    
+    contam = 0.01
+    with open('{data}/contest.firehose'.format(**globals()), 'r') as file:
+        val = file.readline()
+        contam *= float(val)
+
+    return contam
+
+
+if __name__ == '__main__':
+
+    data="/home/ubuntu/data"
+    tool_dir = "/home/ubuntu/tools"
+
+    memory=15
+    halfMemory= memory/2
+    cores=4
+
+    uuid='123456789'
+    normal=uuid + '.N.bam'
+    tumor=uuid + '.T.bam'
+
+    normalBai = normal + '.bai'
+    tumorBai = tumor + '.bai'
+
+    contam = calculate_contamination()
+
+    # Specify protected input set
+    input_set = {'1000G_phase1.indels.hg19.sites.fixed.vcf',
+                 'Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf',
+                 'dbsnp_132_b37.leftAligned.vcf',
+                 'SNP6.hg19.interval_list',
+                 'gaf_20111020+broad_wex_1.1_hg19.bed',
+                 'hg19_population_stratified_af_hapmap_3.3.fixed.vcf',
+                 'genome.fa',
+                 'genome.dict',
+                 'genome.fa.fai' }
