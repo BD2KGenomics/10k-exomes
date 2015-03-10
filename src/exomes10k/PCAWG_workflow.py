@@ -10,6 +10,7 @@ from workflow import Step
 
 
 class PCAWG(WorkFlow):
+
     def __init__(self):
         """
         naming: step#, description, p= parallel, n = normal, t = tumor steps
@@ -30,7 +31,7 @@ class PCAWG(WorkFlow):
                         inputs={normal, normalBai},
                         outputs={"{data}/{uuid}.normal.intervals".format(**globals())})
 
-        s2_RTC_t = Step(inputs="java -Xmx{memory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
+        s2_RTC_t = Step(command="java -Xmx{memory}g -jar {tool_dir}/GenomeAnalysisTK.jar \
                                 -T RealignerTargetCreator \
                                 -nt {cores} \
                                 -R {data}/genome.fa \
@@ -119,11 +120,17 @@ class PCAWG(WorkFlow):
                                 -nbam {data}/normal.bqsr.bam \
                                 --popfile {data}/hg19_population_stratified_af_hapmap_3.3.fixed.vcf \
                                 --arrayinterval {data}/SNP6.hg19.interval_list \
-                                --interval {data}/gaf_20111020+broad_wex_1.1_hg19.bed -run -memory 2",
+                                --interval {data}/gaf_20111020+broad_wex_1.1_hg19.bed \
+                                -run -memory 2".format(**globals()),
                       inputs={},
                       outputs={})
 
-
+        # The calculate_contamination function cannot be called until after S6_CAF
+        # How do we handle .format() with globals and a non-global value? Not sure if the
+        # below implementation will work where contam is being substituted to {0}.
+        # The alternative is to create the class object, call the step methods, and
+        # in between S6 and S7 make a call to the calculate_contamination() function.
+        contam = calculate_contamination()
         s7_Mu = Step(command="java -Xmx4g -jar muTect-1.1.5.jar \
                                 --analysis_type MuTect \
                                 --reference_sequence {data}/genome.fa \
@@ -132,14 +139,14 @@ class PCAWG(WorkFlow):
                                 --intervals {data}/SNP6.hg19.interval_list \
                                 --input_file:normal {data}/normal.bqsr.bam \
                                 --input_file:tumor {data}/tumour.bqsr.bam \
-                                --fraction_contamination {contam} \
+                                --fraction_contamination {0} \
                                 --out {data}/MuTect.out \
                                 --coverage_file {data}/MuTect.coverage \
-                                --vcf {data}/MuTect.pair8.vcf",
+                                --vcf {data}/MuTect.pair8.vcf".format(contam, **globals()),
                      inputs={},
                      outputs={})
 
-def calculate_contamination(self):
+def calculate_contamination():
     """
     Open up contamination file and return contamination value
     """
@@ -168,7 +175,7 @@ if __name__ == '__main__':
     normalBai = normal + '.bai'
     tumorBai = tumor + '.bai'
 
-    contam = calculate_contamination()
+
 
     # Specify protected input set
     input_set = {'1000G_phase1.indels.hg19.sites.fixed.vcf',
