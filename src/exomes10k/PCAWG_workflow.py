@@ -9,9 +9,10 @@ from workflow import WorkFlow
 from workflow import Step
 
 
-class PCAWG(WorkFlow):
+class PCAWG(object, WorkFlow):
 
     def __init__(self):
+        super(PCAWG, self).__init__() 
         """
         naming: step#, description, p= parallel, n = normal, t = tumor steps
         """
