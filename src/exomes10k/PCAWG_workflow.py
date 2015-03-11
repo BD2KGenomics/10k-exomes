@@ -12,7 +12,7 @@ from workflow import Step
 class PCAWG(object, WorkFlow):
 
     def __init__(self):
-        super(PCAWG, self).__init__() 
+        super(PCAWG, self).__init__()
         """
         naming: step#, description, p= parallel, n = normal, t = tumor steps
         """
@@ -129,8 +129,15 @@ class PCAWG(object, WorkFlow):
                                 -run -memory 2".format(**globals()),
                       inputs={"{uuid}.tumour.bqsr.bam".format(**globals()),
                               "{uuid}.normal.bqsr.bam".format(**globals())} | input_set,
-                      outputs={})
-
+                      outputs={"{data}/contest".format(**globals()),
+                               "{data}/contest.base_report.txt".format(**globals()),
+                               "{data}/contest.firehose".format(**globals()),
+                               "{data}/contest.firehouse.out".format(**globals()),
+                               "{data}/contest.out".format(**globals()),
+                               "{data}/.contest.done".format(**globals()),
+                               "{data}/.contest.firehose.done".format(**globals()),
+                               "{data}/.contest.firehose.out.done".format(**globals()),
+                               "{data}/.contest.out.done".format(**globals())})
         # The calculate_contamination function cannot be called until after S6_CAF
         # How do we handle .format() with globals and a non-global value? Not sure if the
         # below implementation will work where contam is being substituted to {0}.
@@ -151,7 +158,9 @@ class PCAWG(object, WorkFlow):
                                 --vcf {data}/MuTect.pair8.vcf".format(contam, **globals()),
                      inputs={"{uuid}.tumour.bqsr.bam".format(**globals()),
                               "{uuid}.normal.bqsr.bam".format(**globals())} | input_set,
-                     outputs={})
+                     outputs={"{data}/MuTect.coverage".format(**globals()),
+                              "{data}/MuTect.out".format(**globals()),
+                              "{tool_dir}/ContaminationPipeline.jobreport.txt".format(**globals())})
 
 def calculate_contamination():
     """
