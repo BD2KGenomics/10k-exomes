@@ -15,8 +15,6 @@ toyThreeOutput = "toyThreeOutput.txt"
 tool_dir = os.path.dirname(__file__)
 
 
-# FIXME: use tempfile.mkdtemp to create temporary directory for workDir
-
 class ToyWorkflow(WorkFlow):
     def __init__(self, data_dir):
         setUp = Step(
@@ -35,6 +33,7 @@ class ToyWorkflow(WorkFlow):
             command="touch {0}/{toyThreeOutput}".format(data_dir, **globals()),
             inputs={"toyTwoOutput.txt"},
             outputs={"toyThreeOutput.txt"})
+
         self.steps = [setUp, toyOne, toyTwo, toyThree]
 
         WorkFlow.__init__(self, self.steps, data_dir)
@@ -82,3 +81,6 @@ class TestWorkFlow(unittest.TestCase):
         self.assertEqual(step_index, index)
         command = workflow.steps[index].command
         subprocess.check_call(command, shell=True)
+        workflow.delete_locally(workflow.deletable_files())
+        deletable_files = workflow.deletable_files()
+        self.assertEqual(len(deletable_files), 0)

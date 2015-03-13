@@ -5,10 +5,11 @@ class Step:
     inputs = set()
     outputs = set()
 
-    def __init__(self, command, inputs, outputs):
+    def __init__(self, command, inputs, outputs, function=None,):
         self.command = command
         self.outputs = outputs
         self.inputs = inputs
+        self.function = function
 
 
 class WorkFlow:
@@ -20,23 +21,19 @@ class WorkFlow:
         # set(s3) ensures that a new set is created, a defensive copy
         self.s3_files = set() if s3_files is None else set(s3_files)
 
-    # normalDownload = Step( command="aws s3 --bucket {bucket} --key {normalKey.name}",
-    # input=[],
-    # output=[])
-    # tumorDownload = Step(command="aws s3 --bucket {bucket} --key {tumorKey.name}", None, None, None)
-
     def current_step(self):
         """
         Returns the index of the workflow step that needs to be run next
         """
-        # FIXME: This loops around (it return 0 when called after the last step was successful
-        for index, step in enumerate(self.steps):
+        #
+        for index, step in enumerate(reversed(self.steps)):
             # If the step has all the necessary inputs, and has not produced the necessary outputs, we return it
             existing_files = self.existing_output
             if step.inputs.issubset(existing_files) and not step.outputs.issubset(existing_files):
-                return index
+                return len(self.steps) - index - 1
             else:
                 if step.outputs.issubset(existing_files) and index+1 == len(self.steps):
+                    #FIXME we should actually terminate program here since all the work has been done.
                     print("Workflow Complete")
                     return -1
         return 0
@@ -55,6 +52,13 @@ class WorkFlow:
                 if file in step.inputs:
                     cannot_be_deleted.add(file)
         return self.existing_output - cannot_be_deleted
+
+    def delete_locally(self,deletable):
+        """
+        given set of deletable files this deletes them from the local system
+        """
+        for file in list(deletable):
+            os.remove(self.work_dir+"/"+file)
 
     # property tag treats function like variable
     @property
