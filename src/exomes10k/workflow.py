@@ -17,11 +17,11 @@ class Step:
         pass
 
 class WorkFlow:
-    def __init__(self, steps, work_dir, s3_files=None):
+    def __init__(self, steps, datadir, s3_files=None):
         """
         """
         self.steps = steps
-        self.work_dir = work_dir
+        self.datadir = datadir
         # set(s3) ensures that a new set is created, a defensive copy
         self.s3_files = set() if s3_files is None else set(s3_files)
 
@@ -43,7 +43,7 @@ class WorkFlow:
         return 0
 
     def get_dir(self):
-        return self.work_dir
+        return self.datadir
 
     def deletable_files(self):
         """
@@ -62,7 +62,7 @@ class WorkFlow:
         given set of deletable files this deletes them from the local system
         """
         for file in list(deletable):
-            os.remove(self.work_dir+"/"+file)
+            os.remove(self.datadir+"/"+file)
 
     # property tag treats function like variable
     @property
@@ -70,7 +70,7 @@ class WorkFlow:
         """
         Returns the existing output files from the current directory
         """
-        files = [f for f in os.listdir(self.work_dir) if os.path.isfile(os.path.join(self.work_dir, f))]
+        files = [f for f in os.listdir(self.datadir) if os.path.isfile(os.path.join(self.datadir, f))]
         output_set = set()
         for f in files:
             for step in self.steps:

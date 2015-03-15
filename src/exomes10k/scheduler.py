@@ -4,7 +4,7 @@ import boto.s3.key
 from boto.sqs.message import Message
 import time
 import workflow
-from PCAWG_workflow import PCAWG
+# from PCAWG_workflow import PCAWG
 normal_key = None
 tumor_key = None
 
@@ -65,9 +65,10 @@ class Connection:
 
 
 def main():
-    pcawg = PCAWG()
-    for step in pcawg.steps:
-        print(step.command)
+    pass
+    # pcawg = PCAWG()
+    # for step in pcawg.steps:
+    #     print(step.command)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,8 @@ __author__ = 'CJ'
 import os
 import subprocess
 import shutil
+import logging
+import time
 
 from workflow import WorkFlow
 from workflow import Step
@@ -11,7 +13,7 @@ from scheduler import Connection
 
 # FIXME: Automatically get/set UUID from files so these commands work properly. For now they are gonna use fake uuids.
 
-# FIXME: get rid of format() calls after command field only. these will be formatted in main. Not essential, just style
+# FIXME: remove format() after command field only. these will be formatted in main(). Not essential, just style
 
 # FIXME: Associate function calls with steps so we dont have to call delete_files every other step.
 
@@ -57,22 +59,23 @@ input_set = {'{data}/1000G_phase1.indels.hg19.sites.fixed.vcf'.format(**globals(
 
 class PCAWG(object, WorkFlow):
 
-    def __init__(self):
+    def __init__(self, datadir):
+
         super(PCAWG, self).__init__()
         # in these funtion steps, the function parameter is set to the function itself, not its results- that is why
         # the function fields are function=self.get_contam, NOT self.get_contam()
 
-        self.delete_step = Step(command="", function=self.delete_files, inputs=set(), outputs=set())
-
+        #self.delete_step = Step(command="", function=super.delete_files, inputs=set(), outputs=set())
+        self.datadir=datadir
         self.get_contam = Step(command="", function=self.calculate_contamination,
                                inputs={'{data}/contest.firehose'.format(**globals())},
                                outputs=set())
 
-        self.steps = [self.downloadTumor, self.downloadNormal, self.s1_index_p, self.delete_step, self.s2_RTC_n,
-                      self.delete_step, self.s2_RTC_t, self.delete_step, self.s3_IR_n,
-                      self.delete_step, self.s3_IR_t, self.delete_step, self.s4_BR_n,
-                      self.delete_step, self.s4_BR_t, self.delete_step, self.s5_PR_n,
-                      self.delete_step, self.s5_PR_t, self.delete_step, self.s6_CAF, self.get_contam, self.s7_Mu ]
+        self.steps = [self.downloadTumor, self.downloadNormal, self.s1_index_p, self.s2_RTC_n,
+                       self.s2_RTC_t, self.s3_IR_n,
+                       self.s3_IR_t, self.s4_BR_n,
+                       self.s4_BR_t, self.s5_PR_n,
+                       self.s5_PR_t, self.s6_CAF, self.get_contam, self.s7_Mu ]
     """
     naming: step#, description, p= parallel, n = normal, t = tumor steps
     """
@@ -248,7 +251,7 @@ class PCAWG(object, WorkFlow):
 
 def main():
     connection = Connection(region="us-west-2",
-                            bucket_one='bd2k-test-flow-start',
+                            bucket_one='bd2k-test-data',
                             bucket_two='bd2k-test-flow-intermediate',
                             bucket_three='bd2k-test-flow-final',
                             queue_one='bd2k-queue-start',
@@ -259,12 +262,22 @@ def main():
     global tumor_key
     normal_key,tumor_key = connection.get_keys()
 
-    workflow = PCAWG()
+    workflow = PCAWG(datadir=data)
+    subprocess.check_call("touch workflow.log", shell=True)
+    logging.basicConfig(filename='workflow.log', level=logging.DEBUG)
 
-    for step in workflow.steps:
-        subprocess.check_call(step.command.format(**globals()), shell=True)
-        step.function()
+    for index, step in enumerate(workflow.steps):
+        workflow.delete_locally(workflow.deletable_files())
 
+        logging.info("step index = "+str(index))
+
+        start = time.time()
+        print(step.command.format(**globals()))
+#        subprocess.check_call(step.command.format(**globals()), shell=True)
+#        step.function()
+        end = time.time()
+
+        logging.info("time elapsed = "+str(end-start))
 
 if __name__ == '__main__':
     main()
