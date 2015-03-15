@@ -9,8 +9,12 @@ class Step:
         self.command = command
         self.outputs = outputs
         self.inputs = inputs
-        self.function = function
+        if(function is None):
+            self.function = self.blank
 
+    @staticmethod
+    def blank(self):
+        pass
 
 class WorkFlow:
     def __init__(self, steps, work_dir, s3_files=None):
@@ -30,7 +34,7 @@ class WorkFlow:
             # If the step has all the necessary inputs, and has not produced the necessary outputs, we return it
             existing_files = self.existing_output
             if step.inputs.issubset(existing_files) and not step.outputs.issubset(existing_files):
-                return len(self.steps) - index - 1
+                return len(self.steps) - index - 1  # this returns equivelent index in the non reversed step list
             else:
                 if step.outputs.issubset(existing_files) and index+1 == len(self.steps):
                     #FIXME we should actually terminate program here since all the work has been done.
@@ -53,7 +57,7 @@ class WorkFlow:
                     cannot_be_deleted.add(file)
         return self.existing_output - cannot_be_deleted
 
-    def delete_locally(self,deletable):
+    def delete_locally(self, deletable):
         """
         given set of deletable files this deletes them from the local system
         """

@@ -1,14 +1,27 @@
 __author__ = 'CJ'
 import os
 import subprocess
-import tempfile
 import shutil
 
 from workflow import WorkFlow
 from workflow import Step
+from scheduler import Connection
 
-# FIXME Things to do before we can fully test: allow Step() to call functions (delete_locally + calculate_contam),
-# FIXME: and download from s3 and set UUID so these commands work properly.
+# Before testing: set up queue, change connection object to reflect new queue/bucket. Also add general logging.
+
+# FIXME: Automatically get/set UUID from files so these commands work properly. For now they are gonna use fake uuids.
+
+# FIXME: get rid of format() calls after command field only. these will be formatted in main. Not essential, just style
+
+# FIXME: Associate function calls with steps so we dont have to call delete_files every other step.
+
+# FIXME: seperate workflow class and its usage (move the stuff in main to another file). Right now we cant, since we
+# FIXME:    need access to the globals
+
+# FIXME: add parrallel step class. Should accept two other steps in constructor. run/join them as threads
+
+# globals for formatting
+
 data = '/home/ubuntu/data'
 tool_dir = '/home/ubuntu/tools'
 
@@ -23,6 +36,12 @@ tumor=uuid + '.T.bam'
 normalBai = normal + '.bai'
 tumorBai = tumor + '.bai'
 
+contam = None
+
+current_bucket = None
+normal_key = None
+tumor_key = None
+
 # Specify protected input set
 input_set = {'{data}/1000G_phase1.indels.hg19.sites.fixed.vcf'.format(**globals()),
              '{data}/Mills_and_1000G_gold_standard.indels.hg19.sites.fixed.vcf'.format(**globals()),
@@ -35,14 +54,35 @@ input_set = {'{data}/1000G_phase1.indels.hg19.sites.fixed.vcf'.format(**globals(
              '{data}/genome.dict'.format(**globals()),
              '{data}/genome.fa.fai'.format(**globals())}
 
+
 class PCAWG(object, WorkFlow):
 
     def __init__(self):
         super(PCAWG, self).__init__()
+        # in these funtion steps, the function parameter is set to the function itself, not its results- that is why
+        # the function fields are function=self.get_contam, NOT self.get_contam()
+
+        self.delete_step = Step(command="", function=self.delete_files, inputs=set(), outputs=set())
+
+        self.get_contam = Step(command="", function=self.calculate_contamination,
+                               inputs={'{data}/contest.firehose'.format(**globals())},
+                               outputs=set())
+
+        self.steps = [self.downloadTumor, self.downloadNormal, self.s1_index_p, self.delete_step, self.s2_RTC_n,
+                      self.delete_step, self.s2_RTC_t, self.delete_step, self.s3_IR_n,
+                      self.delete_step, self.s3_IR_t, self.delete_step, self.s4_BR_n,
+                      self.delete_step, self.s4_BR_t, self.delete_step, self.s5_PR_n,
+                      self.delete_step, self.s5_PR_t, self.delete_step, self.s6_CAF, self.get_contam, self.s7_Mu ]
     """
     naming: step#, description, p= parallel, n = normal, t = tumor steps
     """
-    #delete_files = Step(command="", function=delete_files(), )
+    downloadNormal = Step(command="aws s3 cp s3://{current_bucket}/{normal_key} {data}/{normal}".format(**globals()),
+                           inputs={None},
+                           outputs={"{normal}".format(**globals())})
+
+    downloadTumor = Step(command="aws s3 cp s3://{current_bucket}/{tumor_key} {data}/{tumor}".format(**globals()),
+                           inputs={None},
+                           outputs={"{tumor}".format(**globals())})
 
     s1_index_p = Step(command="samtools index {data}/{normal} & samtools index {data}/{tumor} & wait".format(**globals()),
                       inputs={normal, tumor},
@@ -171,8 +211,11 @@ class PCAWG(object, WorkFlow):
     # below implementation will work where contam is being substituted to {0}.
     # The alternative is to create the class object, call the step methods, and
     # in between S6 and S7 make a call to the calculate_contamination() function.
-    # FIXME this function cannot be called here. Possibly make it its own step
-    contam = None # calculate_contamination()
+
+    # TEMPORARY FIX: format is not called on this command. We will format all commands before check_calling them
+    # this doesn't do anything to commands already formated, and will allow this command to be formatted after
+    # get_contamination step is called. This can be cleaned up by removing the format call after each COMMAND ONLY,
+    # leave the input/output as is.
     s7_Mu = Step(command="java -Xmx4g -jar muTect-1.1.5.jar \
                             --analysis_type MuTect \
                             --reference_sequence {data}/genome.fa \
@@ -184,27 +227,44 @@ class PCAWG(object, WorkFlow):
                             --fraction_contamination {0} \
                             --out {data}/MuTect.out \
                             --coverage_file {data}/MuTect.coverage \
-                            --vcf {data}/MuTect.pair8.vcf".format(contam, **globals()),
+                            --vcf {data}/MuTect.pair8.vcf"
+                 ,
                  inputs={"{uuid}.tumour.bqsr.bam".format(**globals()),
                          "{uuid}.normal.bqsr.bam".format(**globals())} | input_set,
                  outputs={"{data}/MuTect.coverage".format(**globals()),
                           "{data}/MuTect.out".format(**globals()),
                           "{tool_dir}/ContaminationPipeline.jobreport.txt".format(**globals())})
-    steps = [s1_index_p, s2_RTC_n, s2_RTC_t, s3_IR_n, s3_IR_t, s4_BR_n, s4_BR_t, s5_PR_n, s5_PR_t, s6_CAF]
+
+    def calculate_contamination(self):
+        """
+        Open up contamination file and return contamination value
+        """
+        global contam
+        contam = 0.01
+        with open('{data}/contest.firehose'.format(**globals()), 'r') as file:
+            val = file.readline()
+            contam *= float(val)
 
 
-def calculate_contamination():
-    """
-    Open up contamination file and return contamination value
-    """
+def main():
+    connection = Connection(region="us-west-2",
+                            bucket_one='bd2k-test-flow-start',
+                            bucket_two='bd2k-test-flow-intermediate',
+                            bucket_three='bd2k-test-flow-final',
+                            queue_one='bd2k-queue-start',
+                            queue_two='bd2k-queue-intermediate')
+    global current_bucket
+    current_bucket = connection.get_bucket_name()
+    global normal_key
+    global tumor_key
+    normal_key,tumor_key = connection.get_keys()
 
-    contam = 0.01
-    with open('{data}/contest.firehose'.format(**globals()), 'r') as file:
-        val = file.readline()
-        contam *= float(val)
+    workflow = PCAWG()
 
-    return contam
+    for step in workflow.steps:
+        subprocess.check_call(step.command.format(**globals()), shell=True)
+        step.function()
 
 
 if __name__ == '__main__':
-    pass
+    main()
